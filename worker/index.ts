@@ -229,14 +229,17 @@ async function handleNoticias(req: Request, env: Env, url: URL): Promise<Respons
     const { results } = await env.DB.prepare('SELECT * FROM noticias ORDER BY created_at DESC').all()
     return json(results.map((n: Record<string, unknown>) => ({
       id: n.id, titulo: n.titulo, cuerpo: n.cuerpo, autor: n.autor,
-      rol: n.rol, fecha: n.fecha, tipo: n.tipo, imagen: n.imagen,
+      rol: n.rol, fecha: n.fecha, createdAt: n.created_at, tipo: n.tipo, imagen: n.imagen,
     })))
   }
   if (req.method === 'POST') {
     const b = await req.json() as Record<string, unknown>
     const result = await env.DB.prepare('INSERT INTO noticias (titulo, cuerpo, autor, rol, fecha, tipo, imagen) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(b.titulo, b.cuerpo, b.autor, b.rol, b.fecha, b.tipo, b.imagen ?? null).run()
-    const noticia = await env.DB.prepare('SELECT * FROM noticias WHERE id = ?').bind(result.meta.last_row_id).first()
-    return json(noticia, 201)
+    const noticia = await env.DB.prepare('SELECT * FROM noticias WHERE id = ?').bind(result.meta.last_row_id).first() as Record<string, unknown>
+    return json({
+      id: noticia.id, titulo: noticia.titulo, cuerpo: noticia.cuerpo, autor: noticia.autor,
+      rol: noticia.rol, fecha: noticia.fecha, createdAt: noticia.created_at, tipo: noticia.tipo, imagen: noticia.imagen,
+    }, 201)
   }
   if (req.method === 'DELETE') {
     const id = url.searchParams.get('id')
@@ -253,14 +256,14 @@ async function handleSugerencias(req: Request, env: Env, url: URL): Promise<Resp
   if (req.method === 'GET') {
     const { results } = await env.DB.prepare('SELECT * FROM sugerencias ORDER BY created_at DESC').all()
     return json(results.map((s: Record<string, unknown>) => ({
-      id: s.id, texto: s.texto, autor: s.autor, fecha: s.fecha, estado: s.estado,
+      id: s.id, texto: s.texto, autor: s.autor, fecha: s.fecha, estado: s.estado, createdAt: s.created_at,
     })))
   }
   if (req.method === 'POST') {
     const b = await req.json() as Record<string, unknown>
     const result = await env.DB.prepare('INSERT INTO sugerencias (texto, autor, fecha, estado) VALUES (?, ?, ?, ?)').bind(b.texto, b.autor, b.fecha, b.estado ?? 'pendiente').run()
-    const sug = await env.DB.prepare('SELECT * FROM sugerencias WHERE id = ?').bind(result.meta.last_row_id).first()
-    return json(sug, 201)
+    const sug = await env.DB.prepare('SELECT * FROM sugerencias WHERE id = ?').bind(result.meta.last_row_id).first() as Record<string, unknown>
+    return json({ id: sug.id, texto: sug.texto, autor: sug.autor, fecha: sug.fecha, estado: sug.estado, createdAt: sug.created_at }, 201)
   }
   if (req.method === 'PUT') {
     const b = await req.json() as Record<string, unknown>
