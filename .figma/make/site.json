@@ -1,4 +1,5 @@
 {
+  "title": "Mantenimiento Circular",
   "description": "Centralized platform for users to access updated news, weather, personal profiles, orders, maintenance alerts, and team info with interactive features.",
   "robots": {
     "index": false
