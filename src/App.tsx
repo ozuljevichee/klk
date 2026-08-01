@@ -815,7 +815,7 @@ function PageAdmin({ users, setUsers, currentUser }: { users: SysUser[]; setUser
 
 // ─── Page: Inicio ─────────────────────────────────────────────────────────────
 
-function PageInicio({ user, pedidos, registros, onNav, onUpdateUser }: { user: SysUser; pedidos: Pedido[]; registros: MantRegistro[]; onNav: (p: Page) => void; onUpdateUser?: (u: SysUser) => void }) {
+function PageInicio({ user, pedidos, registros, noticias, onNav, onUpdateUser }: { user: SysUser; pedidos: Pedido[]; registros: MantRegistro[]; noticias: Noticia[]; onNav: (p: Page) => void; onUpdateUser?: (u: SysUser) => void }) {
   const { notes, add, toggle, remove, edit } = useNotes()
   const [noteText, setNoteText] = useState('')
   const [noteDue, setNoteDue] = useState('')
@@ -893,6 +893,31 @@ function PageInicio({ user, pedidos, registros, onNav, onUpdateUser }: { user: S
             <div className="text-brand-600 text-[10px] mt-1 font-medium">Ver sección →</div>
           </button>
         ))}
+      </div>
+
+      {/* Últimas noticias publicadas */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-bold text-slate-800" style={{ fontFamily: 'Outfit,sans-serif' }}>📢 Últimas Noticias</h2>
+          <button onClick={() => onNav('informacion')} className="text-brand-600 text-xs font-semibold hover:underline">Ver todas →</button>
+        </div>
+        {noticias.length === 0 ? (
+          <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-100 rounded-xl">Sin noticias publicadas aún.</div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {noticias.slice(0, 3).map(n => (
+              <div key={n.id} className="rounded-xl p-4 border border-slate-100 bg-slate-50">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`text-white text-[10px] font-semibold px-2.5 py-1 rounded-full ${TIPO_NOT_COLOR[n.tipo]}`}>{TIPO_NOT_LABEL[n.tipo]}</span>
+                  <span className="text-slate-400 text-xs">{n.fecha}</span>
+                </div>
+                <h3 className="text-slate-800 font-semibold text-sm mb-1">{n.titulo}</h3>
+                <p className="text-slate-600 text-xs leading-relaxed line-clamp-2">{n.cuerpo}</p>
+                <div className="mt-2 text-[10px] text-slate-400">Publicado por <span className="font-medium text-slate-600">{n.autor}</span></div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Notepad */}
@@ -974,10 +999,9 @@ function PageInicio({ user, pedidos, registros, onNav, onUpdateUser }: { user: S
 
 // ─── Page: Información ────────────────────────────────────────────────────────
 
-function PageInformacion({ user, noticias, setNoticias }: { user: SysUser; noticias: Noticia[]; setNoticias: React.Dispatch<React.SetStateAction<Noticia[]>> }) {
+function PageInformacion({ user, noticias, setNoticias, sugerencias, setSugerencias }: { user: SysUser; noticias: Noticia[]; setNoticias: React.Dispatch<React.SetStateAction<Noticia[]>>; sugerencias: Sugerencia[]; setSugerencias: React.Dispatch<React.SetStateAction<Sugerencia[]>> }) {
   const isAdmin = user.permisos.includes('admin')
   const canPublish = isAdmin || !!user.canPublish
-  const [sugerencias, setSugerencias] = useState<Sugerencia[]>([])
   const [nueva, setNueva] = useState('')
   const [filtro, setFiltro] = useState('todas')
   const [showAddNoticia, setShowAddNoticia] = useState(false)
@@ -1996,6 +2020,7 @@ export default function App() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [registros, setRegistros] = useState<MantRegistro[]>([])
   const [noticias, setNoticias] = useState<Noticia[]>([])
+  const [sugerencias, setSugerencias] = useState<Sugerencia[]>([])
   const [lastSeen, setLastSeen] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(false)
 
@@ -2003,16 +2028,18 @@ export default function App() {
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [u, p, r, n] = await Promise.all([
+      const [u, p, r, n, s] = await Promise.all([
         api.getUsers(),
         api.getPedidos(),
         api.getMantenimientos(),
         api.getNoticias(),
+        api.getSugerencias(),
       ])
       setUsers(u)
       setPedidos(p)
       setRegistros(r)
       setNoticias(n)
+      setSugerencias(s)
     } catch (e) {
       console.error('Error cargando datos:', e)
     } finally {
@@ -2031,7 +2058,7 @@ export default function App() {
   const handleLogout = async () => {
     await api.logout()
     setCurrentUser(null)
-    setUsers([]); setPedidos([]); setRegistros([]); setNoticias([])
+    setUsers([]); setPedidos([]); setRegistros([]); setNoticias([]); setSugerencias([])
   }
 
   // Wrap setters so pages can optimistically update + push to API
@@ -2077,6 +2104,24 @@ export default function App() {
         setNoticias(p => p.map(n => n === added ? saved : n))
       }).catch(console.error)
       if (removed) api.deleteNoticia(removed.id).catch(console.error)
+      return next
+    })
+  }, [])
+
+  const setSugerenciasWithApi: React.Dispatch<React.SetStateAction<Sugerencia[]>> = useCallback((action) => {
+    setSugerencias(prev => {
+      const next = typeof action === 'function' ? action(prev) : action
+      const added = next.find(s => !prev.find(o => o.id === s.id))
+      const removed = prev.find(s => !next.find(o => o.id === s.id))
+      const changed = next.find(s => {
+        const old = prev.find(o => o.id === s.id)
+        return old && old.estado !== s.estado
+      })
+      if (added) api.createSugerencia(added).then(saved => {
+        setSugerencias(p => p.map(s => s === added ? saved : s))
+      }).catch(console.error)
+      if (removed) api.deleteSugerencia(removed.id).catch(console.error)
+      if (changed) api.updateSugerencia(changed).catch(console.error)
       return next
     })
   }, [])
@@ -2149,8 +2194,8 @@ export default function App() {
         <Sidebar page={page} onNav={setPage} user={currentUser} onLogout={handleLogout} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
         <main className="flex-1 overflow-auto">
           <div key={page} className="page-enter">
-            {page === 'inicio' && <PageInicio user={currentUser} pedidos={visiblePedidos} registros={visibleRegistros} onNav={setPage} onUpdateUser={updateUser} />}
-            {page === 'informacion' && <PageInformacion user={currentUser} noticias={noticias} setNoticias={setNoticiasWithApi} />}
+            {page === 'inicio' && <PageInicio user={currentUser} pedidos={visiblePedidos} registros={visibleRegistros} noticias={noticias} onNav={setPage} onUpdateUser={updateUser} />}
+            {page === 'informacion' && <PageInformacion user={currentUser} noticias={noticias} setNoticias={setNoticiasWithApi} sugerencias={sugerencias} setSugerencias={setSugerenciasWithApi} />}
             {page === 'pedidos' && <PagePedidos user={currentUser} pedidos={visiblePedidos} setPedidos={setPedidosWithApi} allPedidos={pedidos} />}
             {page === 'mantenimientos' && <PageMantenimientos user={currentUser} registros={visibleRegistros} setRegistros={setRegistrosWithApi} />}
             {page === 'companeros' && <PageCompaneros users={users} currentUserId={currentUser.id} lastSeen={lastSeen} onUpdateUser={updateUser} />}
