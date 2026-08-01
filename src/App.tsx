@@ -2255,6 +2255,27 @@ export default function App() {
     loadAll().catch(() => api.logout())
   }, [loadAll])
 
+  // Sincronización casi en vivo: mientras haya sesión activa, refrescamos todos los
+  // datos periódicamente para que lo que publique/borre/edite otro usuario se vea
+  // reflejado para todos sin necesidad de recargar la página manualmente.
+  useEffect(() => {
+    if (!currentUser) return
+    const id = setInterval(() => {
+      loadAll().catch(() => {})
+    }, 8000)
+    return () => clearInterval(id)
+  }, [currentUser, loadAll])
+
+  // También refrescamos las noticias públicas de la pantalla de login cada cierto tiempo,
+  // por si alguien queda ahí esperando mientras se publica algo nuevo.
+  useEffect(() => {
+    if (currentUser) return
+    const id = setInterval(() => {
+      api.getPublicNoticias().then(setPublicNoticias).catch(() => {})
+    }, 15000)
+    return () => clearInterval(id)
+  }, [currentUser])
+
   if (loading && !currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a1a10' }}>
