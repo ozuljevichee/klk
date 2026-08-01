@@ -389,9 +389,47 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
 
 function ImageUpload({ value, onChange, label }: { value?: string; onChange: (v: string) => void; label: string }) {
   const ref = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState('')
   const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
-    const r = new FileReader(); r.onload = () => onChange(r.result as string); r.readAsDataURL(file)
+    setError('')
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const img = new Image()
+      img.onload = () => {
+        // Redimensionamos y comprimimos la imagen antes de guardarla, para que no supere
+        // el límite de tamaño de la base de datos (fotos de celular pueden pesar varios MB).
+        const MAX_DIM = 1280
+        let { width, height } = img
+        if (width > MAX_DIM || height > MAX_DIM) {
+          const scale = MAX_DIM / Math.max(width, height)
+          width = Math.round(width * scale)
+          height = Math.round(height * scale)
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { onChange(ev.target?.result as string); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        let quality = 0.8
+        let compressed = canvas.toDataURL('image/jpeg', quality)
+        // Si aún así queda muy pesada, bajamos la calidad progresivamente.
+        while (compressed.length > 700000 && quality > 0.3) {
+          quality -= 0.15
+          compressed = canvas.toDataURL('image/jpeg', quality)
+        }
+        if (compressed.length > 900000) {
+          setError('La imagen sigue siendo muy pesada incluso comprimida. Prueba con otra foto.')
+          return
+        }
+        onChange(compressed)
+      }
+      img.onerror = () => setError('No se pudo procesar la imagen.')
+      img.src = ev.target?.result as string
+    }
+    reader.onerror = () => setError('No se pudo leer el archivo.')
+    reader.readAsDataURL(file)
   }
   return (
     <div>
@@ -407,6 +445,7 @@ function ImageUpload({ value, onChange, label }: { value?: string; onChange: (v:
           <span className="text-slate-400 text-xs">Clic para subir imagen</span>
         </div>
       )}
+      {error && <p className="text-red-500 text-[11px] mt-1">{error}</p>}
       <input ref={ref} type="file" accept="image/*" className="hidden" onChange={handle} />
     </div>
   )
@@ -2057,6 +2096,15 @@ export default function App() {
   const { message: bannerMsg, visible: bannerVisible } = useRotatingMessage()
   useEffect(() => { document.documentElement.classList.toggle('dark-mode', darkMode) }, [darkMode])
 
+  // Error visible al usuario cuando falla el guardado de algo (evita fallos silenciosos)
+  const [saveError, setSaveError] = useState('')
+  const reportSaveError = useCallback((e: unknown) => {
+    console.error(e)
+    const msg = e instanceof Error ? e.message : 'Error desconocido'
+    setSaveError(msg)
+    setTimeout(() => setSaveError(''), 6000)
+  }, [])
+
   // ── Data state — loaded from D1 via API ──
   const [users, setUsers] = useState<SysUser[]>([])
   const [pedidos, setPedidos] = useState<Pedido[]>([])
@@ -2151,11 +2199,11 @@ export default function App() {
       const removed = prev.find(n => !next.find(o => o.id === n.id))
       if (added) api.createNoticia(added).then(saved => {
         setNoticias(p => p.map(n => n === added ? saved : n))
-      }).catch(console.error)
-      if (removed) api.deleteNoticia(removed.id).catch(console.error)
+      }).catch(e => { reportSaveError(e); setNoticias(p => p.filter(n => n !== added)) })
+      if (removed) api.deleteNoticia(removed.id).catch(reportSaveError)
       return next
     })
-  }, [])
+  }, [reportSaveError])
 
   const setSugerenciasWithApi: React.Dispatch<React.SetStateAction<Sugerencia[]>> = useCallback((action) => {
     setSugerencias(prev => {
@@ -2168,12 +2216,12 @@ export default function App() {
       })
       if (added) api.createSugerencia(added).then(saved => {
         setSugerencias(p => p.map(s => s === added ? saved : s))
-      }).catch(console.error)
-      if (removed) api.deleteSugerencia(removed.id).catch(console.error)
-      if (changed) api.updateSugerencia(changed).catch(console.error)
+      }).catch(e => { reportSaveError(e); setSugerencias(p => p.filter(s => s !== added)) })
+      if (removed) api.deleteSugerencia(removed.id).catch(reportSaveError)
+      if (changed) api.updateSugerencia(changed).catch(reportSaveError)
       return next
     })
-  }, [])
+  }, [reportSaveError])
 
   const setUsersWithApi: React.Dispatch<React.SetStateAction<SysUser[]>> = useCallback((action) => {
     setUsers(prev => {
@@ -2238,6 +2286,12 @@ export default function App() {
           </button>
         </div>
       </div>
+      {saveError && (
+        <div className="w-full flex-shrink-0 z-30 sticky top-[36px] bg-red-600 text-white text-xs font-medium px-4 py-2 flex items-center gap-2">
+          <span>⚠️</span>
+          <span>No se pudo guardar: {saveError}</span>
+        </div>
+      )}
       {/* Sidebar + contenido debajo del banner */}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar page={page} onNav={setPage} user={currentUser} onLogout={handleLogout} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
