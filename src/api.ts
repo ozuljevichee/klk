@@ -1,4 +1,4 @@
-import type { SysUser, Pedido, MantRegistro, Noticia, Note } from '@/types'
+import type { SysUser, Pedido, MantRegistro, Noticia, Note, Sugerencia } from '@/types'
 
 // ─── API Client — Patagonia Circular ─────────────────────────────────────────
 
@@ -103,6 +103,24 @@ export async function createNoticia(n: Omit<Noticia, 'id'>) {
 
 export async function deleteNoticia(id: number) {
   return req('DELETE', `/noticias?id=${id}`)
+}
+
+// ─── Sugerencias ──────────────────────────────────────────────────────────────
+
+export async function getSugerencias() {
+  return req<Sugerencia[]>('GET', '/sugerencias')
+}
+
+export async function createSugerencia(s: Omit<Sugerencia, 'id'>) {
+  return req<Sugerencia>('POST', '/sugerencias', s)
+}
+
+export async function updateSugerencia(s: Sugerencia) {
+  return req('PUT', '/sugerencias', s)
+}
+
+export async function deleteSugerencia(id: number) {
+  return req('DELETE', `/sugerencias?id=${id}`)
 }
 
 // ─── Notas ────────────────────────────────────────────────────────────────────
