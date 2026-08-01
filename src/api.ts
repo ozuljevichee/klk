@@ -93,6 +93,10 @@ export async function updateMantenimiento(m: MantRegistro) {
 
 // ─── Noticias ─────────────────────────────────────────────────────────────────
 
+export async function getPublicNoticias() {
+  return req<Noticia[]>('GET', '/public/noticias')
+}
+
 export async function getNoticias() {
   return req<Noticia[]>('GET', '/noticias')
 }
