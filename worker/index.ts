@@ -316,6 +316,15 @@ export default {
       return env.ASSETS.fetch(request)
     }
 
+    // Public route: noticias (para mostrarlas en la pantalla de login, sin sesión)
+    if (path === '/api/public/noticias' && request.method === 'GET') {
+      const { results } = await env.DB.prepare('SELECT * FROM noticias ORDER BY created_at DESC LIMIT 5').all()
+      return json(results.map((n: Record<string, unknown>) => ({
+        id: n.id, titulo: n.titulo, cuerpo: n.cuerpo, autor: n.autor,
+        rol: n.rol, fecha: n.fecha, createdAt: n.created_at, tipo: n.tipo, imagen: n.imagen,
+      })))
+    }
+
     // Public route: login
     if (path === '/api/auth/login' && request.method === 'POST') {
       const { usuario, password } = await request.json() as { usuario: string; password: string }
