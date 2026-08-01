@@ -42,8 +42,8 @@ export interface MantRegistro {
 }
 
 export interface Noticia {
-  id: number; titulo: string; cuerpo: string; autor: string; rol: string; fecha: string
+  id: number; titulo: string; cuerpo: string; autor: string; rol: string; fecha: string; createdAt?: string
   tipo: 'comunicado' | 'operacional' | 'seguridad' | 'admin'; imagen?: string
 }
 
-export interface Sugerencia { id: number; texto: string; autor: string; fecha: string; estado: 'pendiente' | 'revisada' }
+export interface Sugerencia { id: number; texto: string; autor: string; fecha: string; estado: 'pendiente' | 'revisada'; createdAt?: string }
