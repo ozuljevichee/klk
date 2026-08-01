@@ -247,6 +247,35 @@ async function handleNoticias(req: Request, env: Env, url: URL): Promise<Respons
   return err('Método no permitido', 405)
 }
 
+// ─── Sugerencias ──────────────────────────────────────────────────────────────
+
+async function handleSugerencias(req: Request, env: Env, url: URL): Promise<Response> {
+  if (req.method === 'GET') {
+    const { results } = await env.DB.prepare('SELECT * FROM sugerencias ORDER BY created_at DESC').all()
+    return json(results.map((s: Record<string, unknown>) => ({
+      id: s.id, texto: s.texto, autor: s.autor, fecha: s.fecha, estado: s.estado,
+    })))
+  }
+  if (req.method === 'POST') {
+    const b = await req.json() as Record<string, unknown>
+    const result = await env.DB.prepare('INSERT INTO sugerencias (texto, autor, fecha, estado) VALUES (?, ?, ?, ?)').bind(b.texto, b.autor, b.fecha, b.estado ?? 'pendiente').run()
+    const sug = await env.DB.prepare('SELECT * FROM sugerencias WHERE id = ?').bind(result.meta.last_row_id).first()
+    return json(sug, 201)
+  }
+  if (req.method === 'PUT') {
+    const b = await req.json() as Record<string, unknown>
+    await env.DB.prepare('UPDATE sugerencias SET estado=? WHERE id=?').bind(b.estado, b.id).run()
+    return json({ ok: true })
+  }
+  if (req.method === 'DELETE') {
+    const id = url.searchParams.get('id')
+    if (!id) return err('id requerido')
+    await env.DB.prepare('DELETE FROM sugerencias WHERE id = ?').bind(id).run()
+    return json({ ok: true })
+  }
+  return err('Método no permitido', 405)
+}
+
 // ─── Notas ────────────────────────────────────────────────────────────────────
 
 async function handleNotas(req: Request, env: Env, url: URL, session: SessionUser): Promise<Response> {
@@ -325,6 +354,7 @@ export default {
     if (path === '/api/pedidos') return handlePedidos(request, env)
     if (path === '/api/mantenimientos') return handleMantenimientos(request, env)
     if (path === '/api/noticias') return handleNoticias(request, env, url)
+    if (path === '/api/sugerencias') return handleSugerencias(request, env, url)
     if (path === '/api/notas') return handleNotas(request, env, url, session)
 
     return err('Ruta no encontrada', 404)
