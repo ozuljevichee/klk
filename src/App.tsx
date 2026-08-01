@@ -2266,8 +2266,8 @@ export default function App() {
   if (!currentUser) return <LoginPage onLogin={handleLogin} users={users} noticias={publicNoticias} />
 
   const isAdmin = currentUser.permisos.includes('admin')
-  const visiblePedidos = isAdmin ? pedidos : pedidos.filter(p => p.userId === currentUser.id || !p.userId)
-  const visibleRegistros = isAdmin ? registros : registros.filter(r => r.userId === currentUser.id || !r.userId)
+  const visiblePedidos = pedidos
+  const visibleRegistros = registros
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-100">
