@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-900: #0a2218;
+  --color-brand-800: #0f3325;
+  --color-brand-700: #154d38;
+  --color-brand-600: #1e6b4a;
+  --color-brand-500: #2a8a5e;
+  --color-brand-400: #3dab76;
+  --color-brand-300: #5ec98f;
+  --color-brand-200: #9de0bc;
+  --color-brand-100: #d4f4e5;
+  --color-brand-50: #edfaf3;
+  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(42,138,94,0.35); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(42,138,94,0.6); }
+
+/* Page fade-in transition */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: pageEnter 0.25s cubic-bezier(.22,.68,0,1.2) both; }
+
+/* Pulse dot animation */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.45; transform: scale(0.75); }
+}
+.pulse-dot { animation: pulseDot 1.8s ease-in-out infinite; }
+
+/* Glassmorphism card base */
+.glass {
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.18);
+}
+.glass-white {
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.6);
+}
+
+/* Hover micro-interactions */
+.card-hover {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.10);
+}
+.btn-hover {
+  transition: transform 0.14s ease, opacity 0.14s ease, box-shadow 0.14s ease;
+}
+.btn-hover:hover { transform: translateY(-1px) scale(1.015); opacity: 0.92; }
+.btn-hover:active { transform: scale(0.97); }
+
+/* Dark mode — fondo negro, tarjetas blancas sin cambios */
+.dark-mode .bg-slate-100 { background-color: #000000 !important; }
+.dark-mode body { background-color: #000000 !important; }
+/* Fix: inputs — texto siempre negro sobre fondo blanco */
+.dark-mode input::placeholder { color: #999 !important; }
+.dark-mode input { color: #1a1a1a !important; }
+
+/* Overdue / alert pulse */
+@keyframes alertPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50%       { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+}
+.alert-pulse { animation: alertPulse 2s ease-in-out infinite; }
