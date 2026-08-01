@@ -87,6 +87,39 @@ function useRotatingMessage() {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// Hook que fuerza un re-render cada cierto intervalo, para que los tiempos relativos
+// ("hace 5 min", "hace 2 h") se actualicen solos sin necesidad de recargar la página.
+function useNow(intervalMs = 30000) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs)
+    return () => clearInterval(id)
+  }, [intervalMs])
+  return now
+}
+
+// Convierte una fecha guardada en la base de datos (formato SQLite UTC "YYYY-MM-DD HH:MM:SS")
+// en un texto relativo tipo "Hace 5 min", "Hace 2 h", "Hace 3 d".
+function timeAgo(sqliteUtc: string | undefined, now: number, fallback: string): string {
+  if (!sqliteUtc) return fallback
+  const iso = sqliteUtc.includes('T') ? sqliteUtc : sqliteUtc.replace(' ', 'T') + 'Z'
+  const then = new Date(iso).getTime()
+  if (isNaN(then)) return fallback
+  const diffSec = Math.floor((now - then) / 1000)
+  if (diffSec < 0) return 'Hace un momento'
+  if (diffSec < 60) return 'Hace un momento'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `Hace ${diffMin} min`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `Hace ${diffHr} h`
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 30) return `Hace ${diffDay} d`
+  const diffMonth = Math.floor(diffDay / 30)
+  if (diffMonth < 12) return `Hace ${diffMonth} ${diffMonth === 1 ? 'mes' : 'meses'}`
+  const diffYear = Math.floor(diffMonth / 12)
+  return `Hace ${diffYear} ${diffYear === 1 ? 'año' : 'años'}`
+}
+
 const ALL_PAGES: Page[] = ['inicio', 'informacion', 'pedidos', 'mantenimientos', 'companeros']
 
 const PAGE_LABELS: Record<Page, string> = {
@@ -397,6 +430,7 @@ function LoginPage({ onLogin, users, noticias }: { onLogin: (u: SysUser) => void
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const now = useNow()
 
   const handleLogin = async () => {
     setError(''); setLoading(true)
@@ -445,7 +479,7 @@ function LoginPage({ onLogin, users, noticias }: { onLogin: (u: SysUser) => void
                     <div key={n.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
                       <div className="flex items-center justify-between mb-2">
                         <span className={`text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full ${TIPO_NOT_COLOR[n.tipo]}`}>{TIPO_NOT_LABEL[n.tipo]}</span>
-                        <span className="text-white/35 text-[10px]">{n.fecha}</span>
+                        <span className="text-white/35 text-[10px]">{timeAgo(n.createdAt, now, n.fecha)}</span>
                       </div>
                       <p className="text-white text-sm font-medium leading-snug">{n.titulo}</p>
                       <p className="text-white/40 text-[10px] mt-1.5">— {n.autor}</p>
@@ -817,6 +851,7 @@ function PageAdmin({ users, setUsers, currentUser }: { users: SysUser[]; setUser
 
 function PageInicio({ user, pedidos, registros, noticias, onNav, onUpdateUser }: { user: SysUser; pedidos: Pedido[]; registros: MantRegistro[]; noticias: Noticia[]; onNav: (p: Page) => void; onUpdateUser?: (u: SysUser) => void }) {
   const { notes, add, toggle, remove, edit } = useNotes()
+  const now = useNow()
   const [noteText, setNoteText] = useState('')
   const [noteDue, setNoteDue] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -909,7 +944,7 @@ function PageInicio({ user, pedidos, registros, noticias, onNav, onUpdateUser }:
               <div key={n.id} className="rounded-xl p-4 border border-slate-100 bg-slate-50">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className={`text-white text-[10px] font-semibold px-2.5 py-1 rounded-full ${TIPO_NOT_COLOR[n.tipo]}`}>{TIPO_NOT_LABEL[n.tipo]}</span>
-                  <span className="text-slate-400 text-xs">{n.fecha}</span>
+                  <span className="text-slate-400 text-xs">{timeAgo(n.createdAt, now, n.fecha)}</span>
                 </div>
                 <h3 className="text-slate-800 font-semibold text-sm mb-1">{n.titulo}</h3>
                 <p className="text-slate-600 text-xs leading-relaxed line-clamp-2">{n.cuerpo}</p>
@@ -1002,6 +1037,7 @@ function PageInicio({ user, pedidos, registros, noticias, onNav, onUpdateUser }:
 function PageInformacion({ user, noticias, setNoticias, sugerencias, setSugerencias }: { user: SysUser; noticias: Noticia[]; setNoticias: React.Dispatch<React.SetStateAction<Noticia[]>>; sugerencias: Sugerencia[]; setSugerencias: React.Dispatch<React.SetStateAction<Sugerencia[]>> }) {
   const isAdmin = user.permisos.includes('admin')
   const canPublish = isAdmin || !!user.canPublish
+  const now = useNow()
   const [nueva, setNueva] = useState('')
   const [filtro, setFiltro] = useState('todas')
   const [showAddNoticia, setShowAddNoticia] = useState(false)
@@ -1050,7 +1086,7 @@ function PageInformacion({ user, noticias, setNoticias, sugerencias, setSugerenc
               <div className="flex items-center justify-between mb-3">
                 <span className={`text-white text-[10px] font-semibold px-2.5 py-1 rounded-full ${TIPO_NOT_COLOR[n.tipo]}`}>{TIPO_NOT_LABEL[n.tipo]}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-400 text-xs">{n.fecha}</span>
+                  <span className="text-slate-400 text-xs">{timeAgo(n.createdAt, now, n.fecha)}</span>
                   {isAdmin && (
                     <button onClick={() => setNoticias(prev => prev.filter(x => x.id !== n.id))} className="btn-hover text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded-lg hover:bg-red-100 font-semibold">🗑️ Eliminar</button>
                   )}
@@ -1077,7 +1113,7 @@ function PageInformacion({ user, noticias, setNoticias, sugerencias, setSugerenc
             <div key={s.id} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm card-hover">
               <p className="text-slate-700 text-sm leading-relaxed">"{s.texto}"</p>
               <div className="mt-2 flex items-center justify-between">
-                <div className="text-xs text-slate-400">{s.autor} · {s.fecha}</div>
+                <div className="text-xs text-slate-400">{s.autor} · {timeAgo(s.createdAt, now, s.fecha)}</div>
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${s.estado === 'revisada' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{s.estado === 'revisada' ? 'Revisada' : 'Pendiente'}</span>
               </div>
               {/* Admin-only actions */}
