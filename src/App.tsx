@@ -196,11 +196,36 @@ function fmtDate(s: string): string {
   if (s.includes('-')) { const [y, m, d] = s.split('-'); return `${d}/${m}/${y}` }
   return s
 }
-function isProximoCumple(fecha: string) {
-  const [d, m] = fecha.split('/').map(Number)
-  const hoy = new Date()
-  const diff = (m - (hoy.getMonth() + 1)) * 30 + (d - hoy.getDate())
-  return diff >= 0 && diff <= 15
+// Calcula la fecha/hora exacta del próximo cumpleaños (este año o el que viene) a partir de "DD/MM/AAAA" o "DD/MM".
+function nextBirthdayDate(fecha: string, now: number): Date | null {
+  const parts = fecha.split('/').map(Number)
+  const d = parts[0], m = parts[1]
+  if (!d || !m || isNaN(d) || isNaN(m)) return null
+  const today = new Date(now)
+  let year = today.getFullYear()
+  let target = new Date(year, m - 1, d, 0, 0, 0, 0)
+  // Si el cumpleaños de este año ya pasó, calculamos el del año siguiente
+  if (target.getTime() < now) {
+    target = new Date(year + 1, m - 1, d, 0, 0, 0, 0)
+  }
+  return target
+}
+
+// Cuenta regresiva exacta en días, horas y minutos hasta el próximo cumpleaños.
+function birthdayCountdown(fecha: string, now: number): { dias: number; horas: number; minutos: number } | null {
+  const target = nextBirthdayDate(fecha, now)
+  if (!target) return null
+  const diff = target.getTime() - now
+  if (diff < 0) return null
+  const dias = Math.floor(diff / 86400000)
+  const horas = Math.floor((diff % 86400000) / 3600000)
+  const minutos = Math.floor((diff % 3600000) / 60000)
+  return { dias, horas, minutos }
+}
+
+function isProximoCumple(fecha: string, now: number): boolean {
+  const c = birthdayCountdown(fecha, now)
+  return !!c && c.dias <= 15
 }
 function relativeTime(iso?: string): string {
   if (!iso) return 'Nunca'
@@ -849,9 +874,8 @@ function PageAdmin({ users, setUsers, currentUser }: { users: SysUser[]; setUser
 
 // ─── Page: Inicio ─────────────────────────────────────────────────────────────
 
-function PageInicio({ user, pedidos, registros, noticias, onNav, onUpdateUser }: { user: SysUser; pedidos: Pedido[]; registros: MantRegistro[]; noticias: Noticia[]; onNav: (p: Page) => void; onUpdateUser?: (u: SysUser) => void }) {
+function PageInicio({ user, pedidos, registros, onNav, onUpdateUser }: { user: SysUser; pedidos: Pedido[]; registros: MantRegistro[]; onNav: (p: Page) => void; onUpdateUser?: (u: SysUser) => void }) {
   const { notes, add, toggle, remove, edit } = useNotes()
-  const now = useNow()
   const [noteText, setNoteText] = useState('')
   const [noteDue, setNoteDue] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -928,31 +952,6 @@ function PageInicio({ user, pedidos, registros, noticias, onNav, onUpdateUser }:
             <div className="text-brand-600 text-[10px] mt-1 font-medium">Ver sección →</div>
           </button>
         ))}
-      </div>
-
-      {/* Últimas noticias publicadas */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-slate-800" style={{ fontFamily: 'Outfit,sans-serif' }}>📢 Últimas Noticias</h2>
-          <button onClick={() => onNav('informacion')} className="text-brand-600 text-xs font-semibold hover:underline">Ver todas →</button>
-        </div>
-        {noticias.length === 0 ? (
-          <div className="text-center text-slate-400 text-sm py-8 border-2 border-dashed border-slate-100 rounded-xl">Sin noticias publicadas aún.</div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {noticias.slice(0, 3).map(n => (
-              <div key={n.id} className="rounded-xl p-4 border border-slate-100 bg-slate-50">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={`text-white text-[10px] font-semibold px-2.5 py-1 rounded-full ${TIPO_NOT_COLOR[n.tipo]}`}>{TIPO_NOT_LABEL[n.tipo]}</span>
-                  <span className="text-slate-400 text-xs">{timeAgo(n.createdAt, now, n.fecha)}</span>
-                </div>
-                <h3 className="text-slate-800 font-semibold text-sm mb-1">{n.titulo}</h3>
-                <p className="text-slate-600 text-xs leading-relaxed line-clamp-2">{n.cuerpo}</p>
-                <div className="mt-2 text-[10px] text-slate-400">Publicado por <span className="font-medium text-slate-600">{n.autor}</span></div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Notepad */}
@@ -1953,12 +1952,13 @@ function EmergencyContactEditor({ user, onSave }: { user: SysUser; onSave: (u: S
 function PageCompaneros({ users, currentUserId, lastSeen, onUpdateUser }: { users: SysUser[]; currentUserId: number; lastSeen: Record<number, string>; onUpdateUser: (u: SysUser) => void }) {
   const [busqueda, setBusqueda] = useState('')
   const [filtroDpto, setFiltroDpto] = useState('Todos')
+  const now = useNow(60000)
   const deptos = ['Todos', ...Array.from(new Set(users.map(u => u.departamento)))]
   const filtrados = users.filter(u => {
     const q = busqueda.toLowerCase()
     return (filtroDpto === 'Todos' || u.departamento === filtroDpto) && (!q || `${u.nombre} ${u.apellido}`.toLowerCase().includes(q) || u.rol.toLowerCase().includes(q))
   })
-  const proxCumples = users.filter(u => isProximoCumple(u.cumpleanos))
+  const proxCumples = users.filter(u => isProximoCumple(u.cumpleanos, now))
 
   return (
     <div className="p-8 max-w-5xl mx-auto w-full page-enter">
@@ -1971,7 +1971,13 @@ function PageCompaneros({ users, currentUserId, lastSeen, onUpdateUser }: { user
           <span className="text-2xl">🎂</span>
           <div>
             <div className="font-semibold text-sm">Próximos cumpleaños (15 días)</div>
-            <div className="text-white/70 text-xs">{proxCumples.map(u => `${u.nombre} ${u.apellido} — ${u.cumpleanos}`).join(' · ')}</div>
+            <div className="text-white/70 text-xs">
+              {proxCumples.map(u => {
+                const c = birthdayCountdown(u.cumpleanos, now)
+                const cuenta = c ? (c.dias > 0 ? `${c.dias}d ${c.horas}h ${c.minutos}min` : c.horas > 0 ? `${c.horas}h ${c.minutos}min` : `${c.minutos}min`) : ''
+                return `${u.nombre} ${u.apellido} — ${u.cumpleanos} (faltan ${cuenta})`
+              }).join(' · ')}
+            </div>
           </div>
         </div>
       )}
@@ -2057,8 +2063,14 @@ export default function App() {
   const [registros, setRegistros] = useState<MantRegistro[]>([])
   const [noticias, setNoticias] = useState<Noticia[]>([])
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([])
+  const [publicNoticias, setPublicNoticias] = useState<Noticia[]>([])
   const [lastSeen, setLastSeen] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(false)
+
+  // Cargar noticias públicas apenas se abre la app, sin necesitar sesión (para la pantalla de login)
+  useEffect(() => {
+    api.getPublicNoticias().then(setPublicNoticias).catch(() => {})
+  }, [])
 
   // Load all data after login
   const loadAll = useCallback(async () => {
@@ -2095,6 +2107,7 @@ export default function App() {
     await api.logout()
     setCurrentUser(null)
     setUsers([]); setPedidos([]); setRegistros([]); setNoticias([]); setSugerencias([])
+    api.getPublicNoticias().then(setPublicNoticias).catch(() => {})
   }
 
   // Wrap setters so pages can optimistically update + push to API
@@ -2202,7 +2215,7 @@ export default function App() {
     )
   }
 
-  if (!currentUser) return <LoginPage onLogin={handleLogin} users={users} noticias={noticias} />
+  if (!currentUser) return <LoginPage onLogin={handleLogin} users={users} noticias={publicNoticias} />
 
   const isAdmin = currentUser.permisos.includes('admin')
   const visiblePedidos = isAdmin ? pedidos : pedidos.filter(p => p.userId === currentUser.id || !p.userId)
@@ -2230,7 +2243,7 @@ export default function App() {
         <Sidebar page={page} onNav={setPage} user={currentUser} onLogout={handleLogout} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
         <main className="flex-1 overflow-auto">
           <div key={page} className="page-enter">
-            {page === 'inicio' && <PageInicio user={currentUser} pedidos={visiblePedidos} registros={visibleRegistros} noticias={noticias} onNav={setPage} onUpdateUser={updateUser} />}
+            {page === 'inicio' && <PageInicio user={currentUser} pedidos={visiblePedidos} registros={visibleRegistros} onNav={setPage} onUpdateUser={updateUser} />}
             {page === 'informacion' && <PageInformacion user={currentUser} noticias={noticias} setNoticias={setNoticiasWithApi} sugerencias={sugerencias} setSugerencias={setSugerenciasWithApi} />}
             {page === 'pedidos' && <PagePedidos user={currentUser} pedidos={visiblePedidos} setPedidos={setPedidosWithApi} allPedidos={pedidos} />}
             {page === 'mantenimientos' && <PageMantenimientos user={currentUser} registros={visibleRegistros} setRegistros={setRegistrosWithApi} />}
