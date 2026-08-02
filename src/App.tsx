@@ -924,10 +924,11 @@ function PageInicio({ user, pedidos, registros, onNav, onUpdateUser }: { user: S
   const activos = registros.filter(r => !r.deleted)
   const overdueRegs = activos.filter(r => isOverdue(r.proximoMant))
   const soon = activos.filter(r => { const d = new Date(r.proximoMant); return !isNaN(d.getTime()) && d >= new Date() && d <= new Date(Date.now() + 7 * 86400000) })
+  const pedidosActivos = pedidos.filter(p => !p.deleted)
 
   const stats = [
-    { label: 'Pedidos Activos', val: pedidos.filter(p => p.estado !== 'terminado').length, icon: '📦', dot: 'green' as const, nav: 'pedidos' as Page },
-    { label: 'En Inspección', val: pedidos.filter(p => p.estado === 'en_inspeccion').length, icon: '🔍', dot: 'amber' as const, nav: 'pedidos' as Page },
+    { label: 'Pedidos Activos', val: pedidosActivos.filter(p => p.estado !== 'terminado').length, icon: '📦', dot: 'green' as const, nav: 'pedidos' as Page },
+    { label: 'En Inspección', val: pedidosActivos.filter(p => p.estado === 'en_inspeccion').length, icon: '🔍', dot: 'amber' as const, nav: 'pedidos' as Page },
     { label: 'Mant. Próximos', val: soon.length, icon: '🔧', dot: 'amber' as const, nav: 'mantenimientos' as Page },
     { label: 'Mant. Vencidos', val: overdueRegs.length, icon: '⚠️', dot: 'red' as const, nav: 'mantenimientos' as Page },
   ]
